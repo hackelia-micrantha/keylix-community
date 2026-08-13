@@ -1,0 +1,42 @@
+name: Fuzz
+
+on:
+  workflow_dispatch:
+    inputs:
+      seconds_per_target:
+        description: Seconds to fuzz each target (1-300)
+        required: false
+        default: "60"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FUZZ_SECONDS: ${{ inputs.seconds_per_target }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Validate fuzz duration
+        shell: bash
+        run: |
+          if [[ ! "$FUZZ_SECONDS" =~ ^[0-9]+$ ]] || (( FUZZ_SECONDS < 1 || FUZZ_SECONDS > 300 )); then
+            echo "seconds_per_target must be an integer from 1 through 300" >&2
+            exit 2
+          fi
+      - name: Compile-check fuzz targets
+        run: cargo +nightly check --manifest-path fuzz/Cargo.toml --bins
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Fuzz JWK parser
+        working-directory: fuzz
+        run: cargo +nightly fuzz run jwk_parse -- -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048
+      - name: Fuzz DPoP parser and verifier
+        working-directory: fuzz
+        run: cargo +nightly fuzz run dpop_parse_verify -- -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048
+      - name: Fuzz request target parser
+        working-directory: fuzz
+        run: cargo +nightly fuzz run request_target -- -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048
