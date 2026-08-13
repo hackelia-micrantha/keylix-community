@@ -2,6 +2,18 @@
 
 Keylix is a security-sensitive protocol implementation. Correctness, explicit invariants, and adversarial tests take precedence over API convenience.
 
+## Repository model
+
+`keylix-community` is the public issue, review, contribution, and distribution surface. Canonical internal development occurs in the private `hackelia-micrantha/keylix` repository.
+
+- Open public bugs, design proposals, and feature requests in this repository.
+- Submit external implementation changes as pull requests to this repository.
+- Maintainers reconcile accepted public contributions back into the canonical repository before the next publication.
+- Dependency automation and release-source changes are performed in the canonical repository and then published here; do not merge generated dependency drift only into the community repository.
+- Security vulnerabilities must follow [`SECURITY.md`](SECURITY.md) rather than a public issue.
+
+See [`PUBLICATION.md`](PUBLICATION.md) for the repository boundary and publication invariants.
+
 ## Before coding
 
 For security-significant behavior, start with an issue that identifies:
@@ -15,10 +27,11 @@ For security-significant behavior, start with an issue that identifies:
 ## Quality gate
 
 ```bash
+cargo fetch --locked
 cargo fmt --all --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-features
-cargo doc --workspace --no-deps
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-features
+RUSTDOCFLAGS='-D warnings' cargo doc --locked --workspace --no-deps
 ```
 
 Security-sensitive parsing or verification changes should also include adversarial, property, or fuzz tests as appropriate.
