@@ -35,7 +35,7 @@ jobs:
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.gitignore' \
-            --exclude='.github/workflows/bootstrap-community.yml' \
+            --exclude='.github/workflows/' \
             /tmp/keylix-source/ ./
 
           python3 <<'PY'
@@ -47,7 +47,7 @@ jobs:
           for path in Path(".").rglob("*"):
               if not path.is_file() or ".git" in path.parts:
                   continue
-              if path.as_posix() == ".github/workflows/bootstrap-community.yml":
+              if path.as_posix().startswith(".github/workflows/"):
                   continue
               try:
                   text = path.read_text()
