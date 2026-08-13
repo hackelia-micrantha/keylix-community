@@ -5,6 +5,7 @@ members = [
     "crates/keylix-dpop",
     "crates/keylix-oauth",
     "crates/keylix-http",
+    "crates/keylix-observe",
     "crates/keylix-mcp",
     "crates/keylix-conformance",
 ]

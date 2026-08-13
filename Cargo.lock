@@ -330,6 +330,7 @@ dependencies = [
  "keylix-dpop",
  "keylix-http",
  "keylix-oauth",
+ "keylix-observe",
 ]
 
 [[package]]
@@ -381,6 +382,14 @@ dependencies = [
  "base64 0.22.1",
  "keylix-core",
  "keylix-dpop",
+]
+
+[[package]]
+name = "keylix-observe"
+version = "0.1.0"
+dependencies = [
+ "keylix-core",
+ "keylix-oauth",
 ]
 
 [[package]]

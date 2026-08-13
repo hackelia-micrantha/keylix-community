@@ -25,6 +25,7 @@ The suite currently exercises:
 - RFC 9449 compact-JWS malformed input handling;
 - independent ES256 DPoP signature verification;
 - request-target normalization, rejection, and idempotence;
+- direct and explicitly trusted single-hop proxy effective-target reconstruction, including hostile forwarding metadata;
 - method/request binding round trips;
 - replay concurrency and fail-closed backend behavior;
 - AS/RS nonce namespace isolation and successful-response rotation;
@@ -32,8 +33,10 @@ The suite currently exercises:
 - strict DPoP token-type and no-Bearer-downgrade behavior;
 - DPoP protected-resource authorization and fresh proof construction;
 - refresh-token proof-key continuity;
-- fresh, scoped, single-retry-bounded OAuth nonce handling;
+- fresh, scoped, single-retry-bounded OAuth nonce handling with explicit fresh `jti` assertions;
+- external `DpopSigner` capability interoperability and malformed signer-output rejection;
 - ordinary diagnostic surfaces for credential leakage;
+- bounded low-cardinality telemetry and explicit sender-binding evidence behavior;
 - deterministic property-style sweeps across generated P-256 identities and request bindings.
 
 This suite supplements crate-local tests. A requirement is marked `Covered` only when the behavior stated by the requirement is actually exercised; the existence of a nearby primitive is not sufficient.
@@ -102,18 +105,20 @@ OAuth conformance exercises the explicit public host-validation adapters in `key
 
 This does not claim that Keylix validates JWT signatures, issuer/audience/scope, or authenticates introspection endpoints. Those remain host responsibilities as documented in [`OAUTH_INTEGRATION.md`](OAUTH_INTEGRATION.md).
 
+## Safe observability boundary
+
+`keylix-observe` is a downstream, dependency-free value layer. Operational telemetry uses bounded static labels only and carries no tokens, proofs, nonces, `jti`, arbitrary claims, or stable `jkt` identifiers. `SenderBindingEvidence` can be constructed only from a `VerifiedSenderBinding`; the stable key thumbprint is omitted by default and exposed only through explicit evidence policy, while `Debug` remains redacted.
+
+The conformance suite seeds distinctive credential, nonce, forwarding-header, malformed-input, and key-identifier values and asserts that ordinary diagnostic surfaces do not reflect them. See [`OBSERVABILITY.md`](OBSERVABILITY.md) and ADR-0011.
+
 ## RFC/OAuth versus MCP profile claims
 
 RFC-level DPoP/JWK behavior and MCP profile behavior remain separate claims. The RFC/OAuth suite does not depend on an MCP SDK. The MCP suite deliberately exposes its SEP/profile status and SDK/spec target rather than representing draft SEP-1932 behavior as stable conformance.
 
 Profile drift is isolated to `keylix-mcp`; RFC 9449 and OAuth sender-binding semantics remain authoritative upstream layers.
 
-## Remaining implementation-owned coverage
+## v0.1 coverage status
 
-The MCP draft-profile requirements are covered, but the overall Keylix matrix is not complete. Remaining integration-owned work includes:
+The v0.1 requirements matrix in [`REQUIREMENTS.md`](REQUIREMENTS.md) is complete: every defined `KX-DPOP-*`, `KX-BUILD-*`, `KX-JWK-*`, `KX-OAUTH-*`, `KX-OBS-*`, and current draft-profile `KX-MCP-*` row is `Covered`.
 
-- trusted-proxy/framework reconstruction of the external effective request target (`KX-DPOP-009`), beyond the protocol-level URI normalization already tested in `keylix-dpop`;
-- broader generic HTTP-retry/external-provider interoperability obligations where rows remain `Implemented` rather than `Covered`;
-- telemetry/evidence-specific observability requirements (`KX-OBS-001` through `KX-OBS-003`), which are not inferred from ordinary `Debug` redaction alone.
-
-Those requirements remain conservative until their own integration/evidence boundaries are exercised.
+Deployment-specific responsibilities remain explicit rather than being represented as missing Keylix conformance. In particular, hosts still own OAuth validation policy, framework-specific peer identity and path-rewrite correctness, distributed replay-store semantics, security-evidence retention/export policy, and adaptation of bounded telemetry values to a concrete observability stack.

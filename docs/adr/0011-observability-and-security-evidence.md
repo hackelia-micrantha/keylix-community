@@ -43,10 +43,11 @@ A caller may opt into a separate structured evidence interface after successful 
 ```text
 SenderBindingEvidence
 - mechanism: DPoP
-- key_thumbprint: jkt
-- algorithm: ES256
-- target/resource identifier chosen by the host
-- verification time
+- key_thumbprint: optional jkt
+- algorithm: ES256/P-256
+- token validation source
+- proof issued-at time
+- evidence verification time
 - nonce_enforced: bool
 - replay_checked: bool
 ```
@@ -57,9 +58,14 @@ The evidence interface:
 - never includes access-token bytes, raw proof JWT, nonce, private key, or raw `jti`;
 - makes retention/export the caller's explicit responsibility;
 - documents that `key_thumbprint` is a stable pseudonymous correlator;
-- can be mapped into audit/provenance systems such as a gateway or governance layer without exposing credential material.
+- can be mapped into audit/provenance systems such as a gateway or governance layer without exposing credential material;
+- contains no host-supplied free-form resource identifier; hosts envelope Keylix evidence in their own audit model when resource/application context is required.
 
 A deployment that does not need key-level attribution may omit the thumbprint from exported evidence.
+
+### v0.1 implementation
+
+`keylix-observe` implements this split without adding a logging, tracing, metrics, or OpenTelemetry dependency. `TelemetryEvent` and `TelemetryLabels` expose only bounded enums/static low-cardinality values and provide no arbitrary-label escape hatch. `SenderBindingEvidence` is constructed only from `VerifiedSenderBinding`; `EvidenceKeyPolicy::Omit` is the default, while `Include` explicitly exposes the stable thumbprint through the evidence API. Evidence `Debug` remains redacted even when the thumbprint is present.
 
 ### Errors
 

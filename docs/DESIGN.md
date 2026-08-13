@@ -76,8 +76,10 @@ keylix-dpop <----- keylix-http
     |
     | RFC 9449 proof builder/verifier + clock/replay/nonce/signing ports
     |
-keylix-oauth
-    ^
+keylix-oauth <----- keylix-observe
+    ^              | bounded operational telemetry values
+    |              | explicit evidence from VerifiedSenderBinding only
+    |
     | exact-token OAuth composition + token/protected-resource integration
     |
 keylix-mcp
@@ -89,7 +91,7 @@ applications / gateways / MCP SDKs
 keylix-conformance -----> black-box tests against public protocol behavior
 ```
 
-Dependencies point inward. `keylix-core` and `keylix-dpop` MUST NOT depend on an MCP SDK or a concrete OAuth provider.
+Dependencies point inward. `keylix-core` and `keylix-dpop` MUST NOT depend on an MCP SDK or a concrete OAuth provider. `keylix-observe` is a downstream adapter/value layer: it may consume verified OAuth sender state, but protocol crates do not depend on observability frameworks or on `keylix-observe`.
 
 ## Verified-state model
 
