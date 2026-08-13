@@ -15,7 +15,7 @@ http = "1"
 keylix-core = { path = "../keylix-core" }
 keylix-dpop = { path = "../keylix-dpop" }
 keylix-oauth = { path = "../keylix-oauth" }
-rmcp = { version = "=3.0.1", default-features = false, features = ["client", "transport-streamable-http-client"] }
+rmcp = { version = "=3.1.2", default-features = false, features = ["client", "transport-streamable-http-client"] }
 sse-stream = "0.2.4"
 
 [lints]
