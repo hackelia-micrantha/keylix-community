@@ -18,7 +18,7 @@ jobs:
     env:
       FUZZ_SECONDS: ${{ inputs.seconds_per_target }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
       - name: Validate fuzz duration
         shell: bash
