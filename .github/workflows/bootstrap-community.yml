@@ -1,0 +1,103 @@
+name: Bootstrap Keylix community
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bootstrap-community.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-keylix-community
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out community repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch current public Keylix baseline
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/hackelia-micrantha/keylix.git /tmp/keylix-source
+
+      - name: Project public baseline
+        run: |
+          set -euo pipefail
+
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.gitignore' \
+            --exclude='.github/workflows/bootstrap-community.yml' \
+            /tmp/keylix-source/ ./
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          old = "https://github.com/hackelia-micrantha/keylix"
+          new = "https://github.com/hackelia-micrantha/keylix-community"
+
+          for path in Path(".").rglob("*"):
+              if not path.is_file() or ".git" in path.parts:
+                  continue
+              if path.as_posix() == ".github/workflows/bootstrap-community.yml":
+                  continue
+              try:
+                  text = path.read_text()
+              except UnicodeDecodeError:
+                  continue
+              if old in text:
+                  path.write_text(text.replace(old, new))
+
+          readme = Path("README.md")
+          body = readme.read_text()
+          banner = (
+              "> **Public community repository.** This repository is the public development, "
+              "review, and distribution surface for Keylix. Canonical internal development "
+              "occurs in the private `hackelia-micrantha/keylix` repository. Security semantics, "
+              "public APIs, conformance behavior, and releasable implementation remain inspectable here.\n\n"
+          )
+          if banner not in body:
+              lines = body.splitlines(keepends=True)
+              insert_at = 1 if lines and lines[0].startswith("# ") else 0
+              lines.insert(insert_at, "\n" + banner)
+              readme.write_text("".join(lines))
+          PY
+
+          cat > PUBLICATION.md <<'EOF'
+          # Keylix Publication Boundary
+
+          `hackelia-micrantha/keylix` is the private canonical repository. `hackelia-micrantha/keylix-community` is the public development, review, and distribution surface.
+
+          ## Invariants
+
+          - Publication flows one way from the private canonical repository to this public repository.
+          - Security semantics are public by default: protocol behavior, cryptographic design, threat models, public APIs, conformance tests, fuzz targets, and security-relevant ADRs belong here.
+          - Private deployment topology, credentials, operational evidence, embargoed vulnerabilities, unreleased experiments, and environment-specific configuration must not be published.
+          - Public and private implementations must not diverge into separate security semantics.
+          - External contributions are accepted against the public repository and must be reconciled into the private canonical repository before the next publication.
+
+          ## Publication gate
+
+          Future publication automation must perform secret scanning and an explicit path/content allow-or-deny review before updating this repository. The initial repository baseline was copied only while the canonical repository was itself public.
+          EOF
+
+      - name: Commit projected baseline
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+            exit 0
+          fi
+          git commit -m "Publish initial Keylix community baseline"
+          git push origin HEAD:main
