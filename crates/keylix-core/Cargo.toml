@@ -1,0 +1,19 @@
+[package]
+name = "keylix-core"
+description = "Core key, JWK, and sender-binding primitives for Keylix"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+aws-lc-rs.workspace = true
+base64.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

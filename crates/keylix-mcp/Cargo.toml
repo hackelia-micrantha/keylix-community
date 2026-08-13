@@ -1,0 +1,22 @@
+[package]
+name = "keylix-mcp"
+description = "MCP adapters for Keylix sender-constrained authorization"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+futures = "0.3"
+http = "1"
+keylix-core = { path = "../keylix-core" }
+keylix-dpop = { path = "../keylix-dpop" }
+keylix-oauth = { path = "../keylix-oauth" }
+rmcp = { version = "=3.0.1", default-features = false, features = ["client", "transport-streamable-http-client"] }
+sse-stream = "0.2.4"
+
+[lints]
+workspace = true

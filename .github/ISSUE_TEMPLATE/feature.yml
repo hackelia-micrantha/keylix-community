@@ -1,0 +1,30 @@
+name: Feature or protocol change
+description: Propose a feature, protocol behavior, or integration
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete capability or interoperability problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: normative
+    attributes:
+      label: Standards basis
+      description: Link or quote the relevant RFC/spec section when applicable.
+  - type: textarea
+    id: security
+    attributes:
+      label: Security invariants and failure modes
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Required tests
+      description: Include positive, negative, adversarial, conformance, or interoperability cases.
+    validations:
+      required: true

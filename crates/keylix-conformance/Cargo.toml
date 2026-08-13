@@ -1,0 +1,20 @@
+[package]
+name = "keylix-conformance"
+description = "Conformance and adversarial test support for Keylix"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+keylix-core = { path = "../keylix-core" }
+keylix-dpop = { path = "../keylix-dpop" }
+keylix-http = { path = "../keylix-http" }
+keylix-oauth = { path = "../keylix-oauth" }
+
+[lints]
+workspace = true

@@ -1,0 +1,36 @@
+[package]
+name = "keylix-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+keylix-core = { path = "../crates/keylix-core" }
+keylix-dpop = { path = "../crates/keylix-dpop" }
+
+[[bin]]
+name = "jwk_parse"
+path = "fuzz_targets/jwk_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dpop_parse_verify"
+path = "fuzz_targets/dpop_parse_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "request_target"
+path = "fuzz_targets/request_target.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

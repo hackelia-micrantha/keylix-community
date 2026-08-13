@@ -1,0 +1,16 @@
+[package]
+name = "keylix-http"
+description = "Framework-neutral trusted HTTP request-target adapters for Keylix"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+keylix-dpop = { path = "../keylix-dpop" }
+
+[lints]
+workspace = true

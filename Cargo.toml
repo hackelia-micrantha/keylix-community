@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/keylix-core",
+    "crates/keylix-dpop",
+    "crates/keylix-oauth",
+    "crates/keylix-http",
+    "crates/keylix-mcp",
+    "crates/keylix-conformance",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/hackelia-micrantha/keylix-community"
+homepage = "https://github.com/hackelia-micrantha/keylix-community"
+authors = ["RJ"]
+
+[workspace.dependencies]
+aws-lc-rs = "1.17"
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
