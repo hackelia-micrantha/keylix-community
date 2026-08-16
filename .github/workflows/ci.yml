@@ -19,6 +19,11 @@ jobs:
           components: rustfmt, clippy
       - name: Locked dependency graph
         run: cargo fetch --locked
+      - name: Dependency advisories
+        shell: bash
+        run: |
+          cargo_deny="$(bash .github/scripts/install-cargo-deny.sh "$RUNNER_TEMP/bin")"
+          "$cargo_deny" check advisories
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
