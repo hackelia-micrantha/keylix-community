@@ -10,7 +10,7 @@ homepage.workspace = true
 authors.workspace = true
 
 [dependencies]
-keylix-dpop = { path = "../keylix-dpop" }
+keylix-dpop.workspace = true
 
 [lints]
 workspace = true
