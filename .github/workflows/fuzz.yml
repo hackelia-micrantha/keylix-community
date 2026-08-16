@@ -29,10 +29,13 @@ jobs:
             echo "seconds_per_target must be an integer from 1 through 300" >&2
             exit 2
           fi
+      - name: Install pinned cargo-fuzz
+        shell: bash
+        run: |
+          cargo_fuzz="$(bash .github/scripts/install-cargo-fuzz.sh "$RUNNER_TEMP/bin")"
+          echo "$(dirname "$cargo_fuzz")" >> "$GITHUB_PATH"
       - name: Compile-check fuzz targets
         run: cargo +nightly check --manifest-path fuzz/Cargo.toml --bins
-      - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
       - name: Fuzz JWK parser
         working-directory: fuzz
         run: cargo +nightly fuzz run jwk_parse -- -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048

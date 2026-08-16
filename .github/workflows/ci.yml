@@ -34,3 +34,21 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --workspace --no-deps
+
+  fuzz-tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable action, 2026-08-05
+        with:
+          toolchain: nightly
+      - name: Install pinned cargo-fuzz
+        shell: bash
+        run: |
+          cargo_fuzz="$(bash .github/scripts/install-cargo-fuzz.sh "$RUNNER_TEMP/bin")"
+          echo "$(dirname "$cargo_fuzz")" >> "$GITHUB_PATH"
+      - name: Compile-check fuzz targets
+        run: cargo +nightly check --manifest-path fuzz/Cargo.toml --bins
+      - name: Discover fuzz targets
+        working-directory: fuzz
+        run: cargo +nightly fuzz list
