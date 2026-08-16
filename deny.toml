@@ -1,0 +1,10 @@
+# Keylix dependency-security policy for cargo-deny 0.20.2.
+#
+# Vulnerability advisories always fail in cargo-deny. This section makes the
+# remaining release policy explicit rather than relying on tool defaults.
+[advisories]
+yanked = "deny"
+unmaintained = "workspace"
+unsound = "all"
+unused-ignored-advisory = "deny"
+ignore = []
