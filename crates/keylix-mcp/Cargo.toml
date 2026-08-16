@@ -12,9 +12,9 @@ authors.workspace = true
 [dependencies]
 futures = "0.3"
 http = "1"
-keylix-core = { path = "../keylix-core" }
-keylix-dpop = { path = "../keylix-dpop" }
-keylix-oauth = { path = "../keylix-oauth" }
+keylix-core.workspace = true
+keylix-dpop.workspace = true
+keylix-oauth.workspace = true
 rmcp = { version = "=3.0.1", default-features = false, features = ["client", "transport-streamable-http-client"] }
 sse-stream = "0.2.4"
 
