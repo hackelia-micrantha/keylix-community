@@ -25,6 +25,16 @@ base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Publishable Keylix crates are released as one exact-version set. Path
+# resolution is used inside the workspace; the version is retained in packaged
+# manifests so registry consumers do not depend on repository-relative paths.
+keylix-core = { version = "=0.1.0", path = "crates/keylix-core" }
+keylix-dpop = { version = "=0.1.0", path = "crates/keylix-dpop" }
+keylix-oauth = { version = "=0.1.0", path = "crates/keylix-oauth" }
+keylix-http = { version = "=0.1.0", path = "crates/keylix-http" }
+keylix-observe = { version = "=0.1.0", path = "crates/keylix-observe" }
+keylix-mcp = { version = "=0.1.0", path = "crates/keylix-mcp" }
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"

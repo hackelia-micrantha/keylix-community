@@ -10,8 +10,8 @@ homepage.workspace = true
 authors.workspace = true
 
 [dependencies]
-keylix-core = { path = "../keylix-core" }
-keylix-oauth = { path = "../keylix-oauth" }
+keylix-core.workspace = true
+keylix-oauth.workspace = true
 
 [lints]
 workspace = true

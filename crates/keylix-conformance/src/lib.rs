@@ -4,3 +4,6 @@
 //! remain suitable for testing alternative implementations where practical.
 
 #![forbid(unsafe_code)]
+
+/// Bounded, non-authoritative AI-assisted adversarial discovery support.
+pub mod ai_adversary;

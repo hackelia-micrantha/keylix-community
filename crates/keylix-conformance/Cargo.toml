@@ -11,11 +11,11 @@ authors.workspace = true
 publish = false
 
 [dependencies]
-keylix-core = { path = "../keylix-core" }
-keylix-dpop = { path = "../keylix-dpop" }
-keylix-http = { path = "../keylix-http" }
-keylix-observe = { path = "../keylix-observe" }
-keylix-oauth = { path = "../keylix-oauth" }
+keylix-core.workspace = true
+keylix-dpop.workspace = true
+keylix-http.workspace = true
+keylix-observe.workspace = true
+keylix-oauth.workspace = true
 
 [lints]
 workspace = true
