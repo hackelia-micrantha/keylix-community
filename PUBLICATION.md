@@ -46,6 +46,6 @@ The matching `keylix-community` tag/GitHub Release is the public release identit
 
 Supported downstream consumers must not depend on private `hackelia-micrantha/keylix` source, private Git history, canonical-only paths, or publication credentials. They pin this public repository by immutable release tag/revision or consume immutable public release artifacts.
 
-The public flake is credential-free. Until Keylix owns a real installable executable, it remains a reproducible toolchain/build boundary. When genuine server/CLI artifacts are released, the public flake may expose those real `packages` / `apps` and must validate the shipped install surface, including version/help behavior and required man pages/public contract files.
+A reviewed public flake is required before Nix consumption can be considered a supported release surface. Until `flake.nix` and `flake.lock` have landed here through the protected publication path, downstream Nix consumption is not yet supported. Once projected, the public flake must remain credential-free and may serve as the reproducible toolchain/build boundary. When genuine server/CLI artifacts are released, it may expose those real `packages` / `apps` and must validate the shipped install surface, including version/help behavior and required man pages/public contract files.
 
 The archived `hackelia-micrantha/keylix-client` repository is historical evidence only; it is not a parallel release authority. Future client SDK/release work originates from canonical Keylix and follows this same public release identity model.
