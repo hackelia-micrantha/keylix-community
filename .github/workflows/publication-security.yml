@@ -1,0 +1,28 @@
+name: Public Source Publication
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-source-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-publication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout public source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify credential publication boundary
+        run: python3 scripts/check_publication.py
+      - name: Test publication rules
+        run: python3 -m unittest discover -s tests -p 'test_publication.py'
