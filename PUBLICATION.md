@@ -13,6 +13,20 @@
 - Public issue and pull-request numbers are repository-local and must not be used as aliases for private canonical issue numbers.
 - This repository is the externally consumable release authority, but not an independent implementation authority.
 
+## Current-tree public CI guard
+
+Every public pull request, merge-queue commit and push to main runs
+`python3 scripts/check_publication.py` over all tracked files plus synthetic
+regression tests. It blocks credential-like filenames, symlinks and PEM/PGP
+private-key armor without emitting secret values. Public proof fixtures,
+PGP public keys/signatures, and intentional protocol documents remain allowed.
+
+This is an **additional defense**, not canonical publication authorization:
+the private source allowlist/review/sealed-revision workflow below remains
+mandatory. The guard neither searches historical Git objects and releases
+nor proves that a private-to-public projection contains no sensitive
+operational context.
+
 ## Publication gate
 
 Canonical publication is an explicit reviewed operation:
