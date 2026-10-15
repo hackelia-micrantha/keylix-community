@@ -42,3 +42,12 @@ result-*
 .staging/
 private/
 internal/
+
+# Never stage locally provisioned credentials in the public tree.
+secrets.yaml
+secrets.yml
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+!.dev.vars.sample
+!.dev.vars.template
