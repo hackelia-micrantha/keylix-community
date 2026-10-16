@@ -17,7 +17,7 @@ That does **not** make `main` a supported release. Supported downstream use must
 - [Nix development/build contract](docs/NIX.md)
 - [Verifier protocol](docs/VERIFIER_PROTOCOL.md)
 - [Verifier man page](docs/man/keylix-verifier.1)
-- [Client contracts and design](client/docs/README.md)
+- [Client design](client/docs/DESIGN.md) and [API contract](client/docs/API_CONTRACT.md)
 
 ## Why Keylix?
 
