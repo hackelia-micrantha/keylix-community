@@ -49,3 +49,9 @@ Do not add RSA merely for breadth. EdDSA or other asymmetric algorithms may be a
 ## Follow-up
 
 The concrete crypto/JOSE backend remains a separate design decision. Dependency selection must demonstrate strict P-256 public-key validation, fixed ES256 signature encoding/verification semantics, and compatibility with capability-based/non-extractable signing providers.
+
+## Post-v0.1 cryptographic survivability
+
+This ADR intentionally remains the v0.1 interoperability decision. ES256/P-256 is a classical profile and is not a permanent identity or post-quantum commitment.
+
+Future algorithm/profile migration is tracked by issue #73 and [Cryptographic Survivability](../CRYPTOGRAPHIC_SURVIVABILITY.md). Any additional profile remains a deliberate security/API change with explicit standards/interoperability basis, downgrade resistance, conformance vectors, and resource review.

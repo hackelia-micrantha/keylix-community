@@ -2,6 +2,51 @@
 
 Keylix is a coordinated Rust crate set. The workspace version and exact internal dependency requirements move together.
 
+## Micrantha release and integration boundary
+
+Keylix follows the Micrantha private-canonical/public-release pattern:
+
+```text
+hackelia-micrantha/keylix                 private canonical source
+        |
+        | reviewed allowlisted projection
+        v
+hackelia-micrantha/keylix-community       public review + release identity
+        |
+        | immutable public tag / release
+        | credential-free public flake
+        v
+supported downstream consumers            pin the public release only
+```
+
+The private `keylix` repository is the source-of-truth development authority. It is **not** a supported downstream dependency surface. The exact committed `keylix-community` revision that has passed public CI, release validation, and the protected publication path is the source revision from which externally consumable artifacts are produced.
+
+For a released version:
+
+- the matching tag/GitHub Release in `hackelia-micrantha/keylix-community` is the public release identity;
+- Cargo registry packages, GitHub release artifacts, and Nix consumption must resolve to that same public release version/revision;
+- `PUBLICATION-SOURCE.json` records the canonical commit/tree that produced the public source revision;
+- downstream integrations such as Dubnium/dotfiles must pin the public community tag/revision or immutable public release artifact rather than cloning or importing private canonical source;
+- release and runtime/build consumers must not require canonical publication credentials, registry publication credentials, or access to private Git history.
+
+The public release identity does not make `keylix-community` a second implementation authority. Source changes still originate canonically or are reconciled canonically before the next reviewed publication.
+
+### Public flake and installable artifacts
+
+Until Keylix owns a genuine installable program, the projected public flake remains a credential-free reproducible toolchain/build boundary and must not invent a synthetic CLI or package merely for symmetry.
+
+When Keylix introduces genuine packaged server or CLI artifacts, the public release flake must expose those real artifacts under component-owned `packages` / `apps` and validate the complete installed contract. For every shipped executable, release/package CI must verify at minimum:
+
+- `--help` and `--version` succeed;
+- section-1 man pages are shipped in release archives and installed under `share/man/man1` by the Nix package;
+- required public schemas/examples/fixtures that form part of the executable contract are installed where applicable;
+- deterministic package checks remain offline and credential-free;
+- the packaged version corresponds to the public community release identity.
+
+If a future Keylix component intentionally distributes binaries rather than public implementation source, its public flake may fetch immutable reviewed release artifacts with an integrity hash. That optimization must not hide protocol, security, conformance, or compatibility semantics that Keylix's public-security invariant requires to remain inspectable.
+
+The public release and downstream integration contract is documented above.
+
 ## Public crates
 
 The intended registry packages are:
@@ -27,7 +72,7 @@ Run:
 bash scripts/release/package-public.sh
 ```
 
-Outside the canonical publication pipeline this requires a clean checkout. Publication Preview runs the same script against the reviewed projected public tree, where `PUBLICATION-SOURCE.json` binds the intentionally uncommitted projection to an exact canonical commit/tree.
+Outside the publication pipeline this requires a clean checkout. Publication Preview runs the same script against the reviewed projected public tree, where `PUBLICATION-SOURCE.json` binds the intentionally uncommitted projection to an exact canonical commit/tree.
 
 Before any Keylix version exists in the registry, the evidence directory contains:
 
@@ -82,13 +127,16 @@ Do not use `--no-verify` to represent dependent packages as registry-ready. Work
 
 A `v0.1.0` release is not ready solely because `keylix-core` can be packaged or because workspace tests pass. The release candidate must also have:
 
-- the private-canonical/public-community authority controls from canonical issue #29;
+- verified private-canonical/public-community authority controls and protected-publication evidence;
 - a reviewed publication projection from the exact candidate revision;
+- the projected public `flake.nix`/`flake.lock` present in `keylix-community`;
 - green public/canonical validation and dependency-advisory policy;
 - successful exact-revision Release Candidate Fuzz evidence;
 - reviewed package-readiness evidence and the staged registry verification results;
 - final package checksums generated from the exact committed public release revision;
 - the locked dependency inventory for artifacts actually produced;
+- a matching public community tag/GitHub Release identifying that exact release revision;
+- no supported downstream integration that depends on private canonical source;
 - no unsupported claim of independent audit/interoperability if that evidence has not occurred.
 
 Final registry credentials and publication are separate privileged release operations and must not be exposed to pull-request workflows.

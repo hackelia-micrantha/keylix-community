@@ -8,6 +8,7 @@ members = [
     "crates/keylix-observe",
     "crates/keylix-mcp",
     "crates/keylix-conformance",
+    "crates/keylix-verifier",
 ]
 
 [workspace.package]
@@ -22,8 +23,12 @@ authors = ["RJ"]
 [workspace.dependencies]
 aws-lc-rs = "1.17"
 base64 = "0.22"
+fs2 = "=0.4.3"
+libc = "0.2"
+openat = "=0.1.21"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+xattr = { version = "=1.6.1", default-features = false }
 
 # Publishable Keylix crates are released as one exact-version set. Path
 # resolution is used inside the workspace; the version is retained in packaged
