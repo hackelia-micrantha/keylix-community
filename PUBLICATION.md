@@ -60,6 +60,10 @@ The matching `keylix-community` tag/GitHub Release is the public release identit
 
 Supported downstream consumers must not depend on private `hackelia-micrantha/keylix` source, private Git history, canonical-only paths, or publication credentials. They pin this public repository by immutable release tag/revision or consume immutable public release artifacts.
 
-A reviewed public flake is required before Nix consumption can be considered a supported release surface. Until `flake.nix` and `flake.lock` have landed here through the protected publication path, downstream Nix consumption is not yet supported. Once projected, the public flake must remain credential-free and may serve as the reproducible toolchain/build boundary. When genuine server/CLI artifacts are released, it may expose those real `packages` / `apps` and must validate the shipped install surface, including version/help behavior and required man pages/public contract files.
+The reviewed public `flake.nix` and `flake.lock` are now committed here through the protected publication path. The public flake is the reproducible source/toolchain boundary and currently exposes the pre-release `keylix-verifier` package/app together with checks for its shipped contract surface. Its committed presence on `main` does **not** by itself establish a supported release.
+
+Supported downstream Nix consumption must bind to an immutable public release tag/revision that explicitly establishes support and must correspond to the same public revision as Cargo packages and other release artifacts. Before that release exists, consumers may inspect and qualify the committed public flake, verifier package, and public contract documentation, but must not treat `main` as a stable supported interface.
+
+The current projected source also includes public client protocol/design contracts under `client/docs`. Those documents define future SDK-facing behavior within the public review surface; they are not evidence that a separately versioned client SDK has been released.
 
 The archived `hackelia-micrantha/keylix-client` repository is historical evidence only; it is not a parallel release authority. Future client SDK/release work originates from canonical Keylix and follows this same public release identity model.

@@ -8,6 +8,17 @@ Keylix is a security-focused Rust project for building and verifying cryptograph
 
 > **Status:** the v0.1 implementation and conformance baseline is complete, but Keylix remains pre-release. APIs and security properties are not yet stable. Do not use Keylix to protect production credentials until a tagged release explicitly states otherwise.
 
+### Current public source surface
+
+The protected publication path now commits the reviewed public Nix flake, the packaged `keylix-verifier` reference host, and the public client contract/design documentation in this repository. These are available for source review, reproducible development, and pre-release qualification from the committed public tree.
+
+That does **not** make `main` a supported release. Supported downstream use must bind to an immutable public release tag/revision or release artifact that explicitly establishes support.
+
+- [Nix development/build contract](docs/NIX.md)
+- [Verifier protocol](docs/VERIFIER_PROTOCOL.md)
+- [Verifier man page](docs/man/keylix-verifier.1)
+- [Client design](client/docs/DESIGN.md) and [API contract](client/docs/API_CONTRACT.md)
+
 ## Why Keylix?
 
 Bearer credentials can be replayed by anyone who obtains them. DPoP binds OAuth tokens to a key pair and requires a fresh signed proof when the token is used, reducing the value of a stolen token without the corresponding private key.
@@ -43,6 +54,7 @@ Keylix provides or defines:
 - trusted HTTP request-target/proxy adapters
 - OAuth client and resource-server integration points
 - an experimental MCP HTTP adapter for the current SEP-1932 draft profile
+- a packaged `keylix-verifier` reference host for bounded local verification over a hardened Unix-socket boundary
 - bounded operational telemetry and explicit sender-binding security evidence
 - conformance vectors, property tests, fuzzing, and adversarial test cases
 
@@ -103,7 +115,17 @@ Implementation PRs should reference affected IDs in [`docs/REQUIREMENTS.md`](doc
 
 ## Development
 
-Keylix is organized as a Cargo workspace. The baseline quality gate includes locked dependency resolution, formatting, Clippy, tests, documentation checks, dependency/security auditing, and bounded fuzz targets for parser/verifier boundaries.
+Keylix is organized as a Cargo workspace with a committed public Nix flake. The baseline quality gate includes locked dependency resolution, formatting, Clippy, tests, documentation checks, dependency/security auditing, Nix flake checks, and bounded fuzz targets for parser/verifier boundaries.
+
+For the reviewed repository toolchain and verifier package/app surface:
+
+```bash
+nix develop
+nix flake check
+nix run .#keylix-verifier -- --help
+```
+
+These commands exercise the committed pre-release source surface; they do not substitute for an immutable supported release tag.
 
 ```bash
 cargo fetch --locked
