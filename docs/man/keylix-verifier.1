@@ -1,0 +1,73 @@
+.TH KEYLIX-VERIFIER 1
+.SH NAME
+keylix-verifier \- bounded local Keylix sender-binding verifier
+.SH SYNOPSIS
+.B keylix-verifier
+.B --socket
+.I PATH
+.B --peer-credentials
+.I PATH
+.B --replay-dir
+.I PATH
+.RI [ options ]
+.SH DESCRIPTION
+keylix-verifier verifies DPoP sender binding for host-validated access credentials.
+It does not validate application credentials, construct principals, or authorize
+application actions.
+.PP
+The reference transport is one-request-per-connection JSON over a local Unix
+socket. Inner host attestations are decoded only after HMAC authentication of an
+allowlisted service peer.
+.SH OPTIONS
+.TP
+.BI --socket " PATH"
+Absolute Unix-domain socket path. By default its parent must be a private
+service-owned directory reached only through root- or verifier-owned non-writable
+path components. A stale owner-matching socket is recovered only when no live
+listener accepts a connection.
+.TP
+.BI --socket-group-gid " GID"
+On Linux, permit one explicit trusted local transport group. GID must be
+nonzero and the verifier process must have it as its filesystem GID or a
+supplementary group. The socket parent must already carry this GID through
+setgid and group-traversal-only (02710), with no setuid/sticky bits or POSIX
+access/default ACLs. The verifier process must start with umask 0117 so the
+socket is created mode 0660 at bind time. The verifier never changes the
+directory SGID/publication mode at runtime; the supervisor owns that setup.
+This keeps the profile compatible with systemd DynamicUser/RestrictSUIDSGID
+sandboxes. Replay state and peer credentials remain owner-only; HMAC peer
+authentication remains mandatory.
+.TP
+.BI --peer-credentials " PATH"
+Absolute owner-only JSON peer credential file. The file must be owned by root
+or the verifier UID. Each path component is opened descriptor-relative and must
+be root- or verifier-owned, non-symlinked, and not group/other-writable.
+.TP
+.BI --replay-dir " PATH"
+Absolute private service-owned persistent replay directory. Replay state
+survives verifier restarts. The directory is opened as a capability and replay
+operations stay descriptor-relative; untrusted owners, symlinks, and
+group/other-writable path components are rejected.
+.TP
+.BI --require-nonce-context " ID"
+Enable sticky server-owned resource-server nonce enforcement for the configured
+context.
+.TP
+.BI --replay-capacity " N"
+Maximum active persistent replay entries. Default 4096.
+.TP
+.BI --nonce-capacity " N"
+Maximum process-local nonce contexts. Default 64.
+.TP
+.BR -h ", " --help
+Print usage.
+.TP
+.BR -V ", " --version
+Print version.
+.SH SECURITY
+Replay state is durable across verifier restarts in one owner-only local directory.
+Each request and response frame has an absolute two-second I/O deadline.
+Multi-instance deployment requires a shared atomic backend or equivalent routing
+semantics.
+Peer secrets and request credentials must not be placed in source control, Nix
+store paths, logs, or command-line arguments.

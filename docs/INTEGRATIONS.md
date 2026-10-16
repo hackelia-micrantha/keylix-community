@@ -260,6 +260,32 @@ MCP dispatch
 
 Sender binding is established **before** MCP method/tool dispatch. Downstream context receives the verified binding/evidence, not the raw proof.
 
+## Runtime credential-mediation composition
+
+A sandbox/runtime may keep bearer credentials outside an untrusted agent process and inject or proxy them only for permitted requests. That is complementary to Keylix sender binding, not a substitute for it.
+
+```text
+application / Anthesis authorization
+        |
+        v
+runtime credential confinement / mediation
+        |
+        v
+Keylix sender-bound request
+        |
+        v
+resource server
+```
+
+For runtimes such as NVIDIA OpenShell, a future integration may combine provider-owned credential mediation with Keylix DPoP proof generation/verification so that:
+
+- raw credential exposure to the untrusted process is reduced;
+- possession of a copied bearer credential remains insufficient without the sender key;
+- host/application authorization remains independent of both mechanisms;
+- runtime mediation evidence and Keylix verification evidence remain evidence, not semantic authority.
+
+Keylix does not adopt runtime-specific sandbox policy or credential-proxy implementation into its core. Concrete runtime adapters should follow a demonstrated consumer contract and preserve the existing OAuth/DPoP boundaries.
+
 ## Invokrum integration
 
 Invokrum can consume Keylix at its invocation boundary:

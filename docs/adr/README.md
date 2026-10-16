@@ -21,5 +21,6 @@ Keylix uses ADRs for decisions that materially constrain security behavior or pu
 - [ADR-0009: Proof lifetime, replay, and nonce policy](0009-proof-lifetime-replay-and-nonce-policy.md) — Accepted
 - [ADR-0010: Crypto and JOSE backend architecture](0010-crypto-and-jose-backend.md) — Accepted
 - [ADR-0011: Safe observability and security evidence](0011-observability-and-security-evidence.md) — Accepted
+- [ADR-0012: Package a bounded verifier host around existing sender-binding libraries](0012-bounded-verifier-reference-host.md) — Proposed
 
 The initial v0.1 security architecture is now sufficiently constrained for implementation. Normative behavior and test obligations are tracked in [`../REQUIREMENTS.md`](../REQUIREMENTS.md). New security-sensitive decisions should receive an ADR rather than being introduced as implicit library defaults.
