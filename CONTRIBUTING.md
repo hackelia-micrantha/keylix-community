@@ -57,3 +57,5 @@ See the organization-wide [community UI design directive](https://github.com/hac
 Keep changes narrowly scoped. PR descriptions should identify the security property affected and link to normative specification text where relevant.
 
 Public contribution provenance is preserved through canonical reconciliation. A public PR's CI result is not a bypass for canonical formatting, static analysis, tests, conformance, or security review.
+
+For documentation-only contributions, describe the intended text change and explicitly state whether protocol behavior, verification semantics, packaging, or release configuration changes. Documentation-only changes still follow the normal public review and canonical reconciliation path.
