@@ -173,3 +173,5 @@ community PR -> community main -> plan -> apply -> canonical CI/review
 ```
 
 Record the originating public SHA and resulting canonical SHA in the relevant issue/PR. That exercise is the acceptance proof for the first reconciliation workflow.
+
+For a reproducible exercise, choose a harmless change under `docs/` or another explicitly allowlisted path. Repository-control files such as `CONTRIBUTING.md` require manual reconciliation and cannot establish the helper's `plan`/`apply` acceptance evidence.
