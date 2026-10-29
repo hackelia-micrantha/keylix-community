@@ -179,3 +179,51 @@ class RegistryReadinessBoundaryTests(unittest.TestCase):
         self.assertIn("core-publish-dry-run.log", script)
         self.assertNotIn("cargo publish --locked -p keylix-core", script)
         self.assertNotIn("--no-verify", script)
+
+
+class ReleaseOperatorSafetyTests(unittest.TestCase):
+    def test_registry_publication_only_in_separate_local_command(self):
+        import subprocess
+        root = Path(__file__).resolve().parents[2]
+        command = root / "scripts/release/operator-publish.sh"
+        script = command.read_text()
+        subprocess.run(["bash", "-n", str(command)], check=True)
+        self.assertIn("GITHUB_ACTIONS", script)
+        self.assertIn("CI", script)
+        self.assertIn('git ls-remote origin refs/heads/main', script)
+        self.assertIn("PUBLICATION-SOURCE.json", script)
+        self.assertIn("cargo publish --dry-run --locked -p", script)
+        self.assertIn('cargo publish --locked -p "$crate_name"', script)
+        self.assertIn("confirm_publish", script)
+        self.assertIn("publish-one)", script)
+        self.assertIn("registry_checksum=UNVERIFIED", script)
+        self.assertNotIn("--allow-dirty", script)
+        self.assertNotIn("--no-verify", script)
+        self.assertNotIn("git push", script)
+        self.assertNotIn("gh release create", script)
+
+    def test_ci_release_preflight_denies_before_cargo_or_network(self):
+        import os
+        import subprocess
+        from unittest.mock import patch
+        root = Path(__file__).resolve().parents[2]
+        command = root / "scripts/release/operator-publish.sh"
+        for protected_env in ({"GITHUB_ACTIONS": "true"}, {"CI": "true"}):
+            with patch.dict(os.environ, protected_env):
+                result = subprocess.run(
+                    ["bash", str(command), "preflight", "a" * 40],
+                    cwd=root, text=True, capture_output=True, check=False,
+                )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("privileged publication forbidden", result.stderr)
+
+    def test_invalid_release_arguments_fail_before_effect(self):
+        import subprocess
+        root = Path(__file__).resolve().parents[2]
+        command = root / "scripts/release/operator-publish.sh"
+        for args in ((), ("bad-command",), ("publish-one", "invalid"),
+                     ("publish-one", "a" * 40, "unknown-crate")):
+            result = subprocess.run(["bash", str(command), *args],
+                                    text=True, capture_output=True, check=False)
+            self.assertNotEqual(result.returncode, 0, args)
+            self.assertIn("DENY", result.stderr)
