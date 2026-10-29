@@ -7,6 +7,8 @@ readonly official_repository='hackelia-micrantha/keylix-community'
 readonly canonical_sha='bf31dd5d0a1c13f16071959d7a417bb63199bb02'
 readonly canonical_tree='26b86859b51d05a73001dfa170cbb0009d9d5e79'
 readonly version='0.1.0'
+# crates.io filters generic curl User-Agent requests; identify this read-only client.
+readonly registry_user_agent='keylix-release/0.1 (+https://github.com/hackelia-micrantha/keylix-community)'
 readonly publish_order='keylix-core keylix-dpop keylix-http keylix-oauth keylix-observe keylix-mcp'
 
 deny() { printf 'keylix-release: DENY %s\n' "$*" >&2; exit 1; }
@@ -67,7 +69,8 @@ PY
 
 registry_status() {
   local name="$1" code
-  code="$(curl --silent --show-error --location --connect-timeout 5 --max-time 15 \
+  code="$(curl --silent --show-error --location \
+    --user-agent "$registry_user_agent" --connect-timeout 5 --max-time 15 \
     --output /dev/null --write-out '%{http_code}' \
     "https://crates.io/api/v1/crates/$name/$version")" || deny "crates.io lookup failed for $name"
   case "$code" in
@@ -76,9 +79,25 @@ registry_status() {
   esac
 }
 
+require_unpublished() {
+  local name="$1" current_status
+  # A 403/429/5xx or network error is not evidence that a crate exists.
+  # Check substitution status explicitly: failures inside [[ ... ]] would
+  # otherwise be converted into misleading "already exists" messages.
+  current_status="$(registry_status "$name")" ||
+    deny "crates.io status unavailable for $name; no publication attempted"
+  case "$current_status" in
+    404) return 0 ;;
+    200) deny "crate $name@$version already exists; refuse overwrite" ;;
+    *) deny "ambiguous crates.io status for $name: $current_status" ;;
+  esac
+}
+
 registry_checksum() {
   local name="$1"
-  curl --silent --show-error --fail --location     --connect-timeout 5 --max-time 15     "https://crates.io/api/v1/crates/$name/$version"     | python3 -B -c '
+  curl --silent --show-error --fail --location \
+    --user-agent "$registry_user_agent" \
+    --connect-timeout 5 --max-time 15     "https://crates.io/api/v1/crates/$name/$version"     | python3 -B -c '
 import json
 import re
 import sys
@@ -136,8 +155,11 @@ for dependency in crate.get("dependencies", {}):
 PY
 )" || deny 'invalid internal dependency graph'
   for dependent in $deps; do
-    [[ "$(registry_status "$dependent")" == 200 ]] \
-      || deny "dependency $dependent=0.1.0 not available in crates.io"
+    local dependency_status
+    dependency_status="$(registry_status "$dependent")" ||
+      deny "crates.io status unavailable for dependency $dependent; stop"
+    [[ "$dependency_status" == 200 ]] ||
+      deny "dependency $dependent=0.1.0 not available in crates.io"
     if [[ "$mode" == publish-one ]]; then
       local sibling_receipt="$KEYLIX_RELEASE_EVIDENCE_DIR/$dependent-$version-$expected_sha.txt"
       [[ -f "$sibling_receipt" && ! -L "$sibling_receipt" ]] \
@@ -148,8 +170,11 @@ PY
       sibling_checksum="$(sed -n 's/^registry_checksum_verified=//p' "$sibling_receipt")"
       [[ "$sibling_checksum" =~ ^[a-f0-9]{64}$ ]] \
         || deny "dependency $dependent registry checksum not verified"
-      [[ "$(registry_checksum "$dependent")" == "$sibling_checksum" ]] \
-        || deny "dependency $dependent registry checksum changed"
+      local live_checksum
+      live_checksum="$(registry_checksum "$dependent")" ||
+        deny "dependency $dependent registry checksum lookup unavailable"
+      [[ "$live_checksum" == "$sibling_checksum" ]] ||
+        deny "dependency $dependent registry checksum changed"
     fi
   done
 }
@@ -222,7 +247,8 @@ main() {
     verify-registry)
       local name code
       for name in $publish_order; do
-        code="$(registry_status "$name")"
+        code="$(registry_status "$name")" ||
+          deny "crates.io status unavailable for $name; registry audit incomplete"
         printf '%s@%s HTTP %s\n' "$name" "$version" "$code"
       done
       ;;
@@ -233,8 +259,7 @@ main() {
       ;;
     publish-one)
       check_evidence_directory
-      [[ "$(registry_status "$crate_name")" == 404 ]] \
-        || deny "crate $crate_name@$version already exists; refuse overwrite"
+      require_unpublished "$crate_name"
       check_dependency_registry "$crate_name" publish-one
       cargo publish --dry-run --locked -p "$crate_name"
       local package_archive="target/package/$crate_name-$version.crate"

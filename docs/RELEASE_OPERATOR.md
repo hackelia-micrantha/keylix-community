@@ -54,6 +54,17 @@ main, SHA, canonical provenance, package versions and registry state.
 Preflight runs Cargo publish --dry-run --locked for core. No token or
 registry upload is needed for the dry run.
 
+### crates.io HTTP status diagnostics
+
+crates.io may return HTTP 403 to the default curl User-Agent even when a
+package version is absent. The release tool now uses an identifying
+User-Agent and fails closed on 403, 429, server errors, or network errors.
+Only 200 indicates an existing published version; only 404 permits
+a first-package submission. A failed lookup is never permission to retry.
+
+Changing this script changes public main SHA. After a reviewed merge,
+repeat the local non-upload preflight with the NEW exact public SHA.
+
 Only after explicit, separate publication authority and a successful
 preflight, create a private owner-only evidence directory OUTSIDE the
 checkout and opt in to one privileged crate publication at a time:
