@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Reconstruct a reviewed private preview only after public environment approval."""
+"""Local-only, single-operator publication of an exact reviewed Keylix preview.
+
+Migration bridge: this existing Python validator is reused until a vetted Rust
+replacement exists; no privileged Actions workflow may run it.
+"""
+import argparse
+import datetime
 import hashlib
 import hmac
 import io
 import json
 import os
+import shutil
 from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 import zipfile
@@ -157,75 +165,218 @@ def verify_candidate(files, public_sha, tree, workspace):
             "public main advanced after validation")
 
 
-def main():
-    env = os.environ
-    canonical = env["CANONICAL_SHA"]
-    public_sha = env["COMMUNITY_SHA"]
-    tree = env["CANDIDATE_TREE"]
-    digest = env["PREVIEW_ARCHIVE_SHA256"]
-    run_id = env["PREVIEW_RUN_ID"]
-    artifact_id = env["PREVIEW_ARTIFACT_ID"]
-    validate_inputs(canonical, public_sha, tree, digest, run_id, artifact_id)
-    require(env.get("GITHUB_REPOSITORY") == PUBLIC and
-            env.get("GITHUB_REF") == "refs/heads/main",
-            "approval workflow must run from public main")
-    require(env.get("GITHUB_SHA") == git("rev-parse", "HEAD"),
-            "checked-out workflow revision differs from authenticated run")
-    private_token = env["KEYLIX_PRIVATE_PREVIEW_READ_TOKEN"]
-    public_token = env["KEYLIX_PUBLICATION_WRITE_TOKEN"]
-    require(bool(private_token) and bool(public_token),
-            "protected environment credentials unavailable")
-    run = api("/repos/" + PRIVATE + "/actions/runs/" + run_id, private_token)
+
+def local_gh_token():
+    """Use the operator's existing GitHub CLI login; never print or save its token."""
+    require(shutil.which("gh") is not None, "gh CLI is required on the operator host")
+    result = subprocess.run(["gh", "auth", "token"], capture_output=True,
+                            text=True, check=False)
+    require(result.returncode == 0 and bool(result.stdout.strip()),
+            "gh is not authenticated; run gh auth login on the trusted workstation")
+    return result.stdout.strip()
+
+
+def check_operator_checkout():
+    """Source and publishing logic must be the current trusted public main."""
+    require(os.environ.get("GITHUB_ACTIONS") != "true",
+            "local-only publication cannot run from GitHub Actions")
+    require(os.environ.get("CI", "").lower() in ("", "false", "0"),
+            "local publication cannot run in CI")
+    repo = git("rev-parse", "--show-toplevel")
+    require(Path(repo).resolve() == Path(__file__).resolve().parents[2],
+            "invoke the trusted public script from its own public checkout")
+    require(git("branch", "--show-current") == "main",
+            "operator checkout must be on public main")
+    require(not git("status", "--porcelain", "--untracked-files=all"),
+            "operator checkout has uncommitted or untracked work")
+    remote = git("remote", "get-url", "origin")
+    require(remote in (
+        "git@github.com:" + PUBLIC + ".git",
+        "https://github.com/" + PUBLIC + ".git",
+        "https://github.com/" + PUBLIC,
+    ), "public origin does not match the expected official repository")
+    current = git("rev-parse", "HEAD")
+    actual = git("ls-remote", "origin", "refs/heads/main").split()[0]
+    require(current == actual, "local public main is stale; fetch/rebase first")
+    return current
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Publish reviewed Keylix preview from a trusted local console; never from Actions."
+    )
+    parser.add_argument("--canonical-sha", required=True)
+    parser.add_argument("--community-sha", required=True)
+    parser.add_argument("--candidate-tree", required=True)
+    parser.add_argument("--preview-run-id", required=True)
+    parser.add_argument("--preview-artifact-id", required=True)
+    parser.add_argument("--preview-archive-sha256", required=True)
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Replay and verify exactly; do not prompt, commit, push or create PR")
+    parser.add_argument("--receipt", type=Path,
+                        help="Write an operator audit receipt outside the Git checkout, mode 0600")
+    return parser.parse_args(argv)
+
+
+def record_receipt(path, details):
+    if path is None:
+        return
+    path = path.expanduser().resolve()
+    require(not path.exists(), "refuse to overwrite an existing audit receipt")
+    # No secrets, private source or artifact contents are ever recorded.
+    data = (json.dumps(details, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    with os.fdopen(descriptor, "wb") as receipt:
+        receipt.write(data)
+
+
+def operator_confirm(canonical, public_sha, candidate, artifact_digest):
+    require(sys.stdin.isatty() and sys.stdout.isatty(),
+            "publishing requires a real interactive terminal")
+    print("\nPRIVATE CANONICAL:", canonical)
+    print("REVIEWED PUBLIC BASE:", public_sha)
+    print("VERIFIED CANDIDATE TREE:", candidate)
+    print("REVIEWED ARTIFACT SHA-256:", artifact_digest)
+    expected = "PUBLISH " + canonical[:12]
+    try:
+        with open("/dev/tty", encoding="utf-8") as console:
+            print("Type exactly " + expected + " to authorize the public PR: ")
+            confirmation = console.readline().strip()
+    except OSError as error:
+        raise RuntimeError("no trusted interactive console") from error
+    require(confirmation == expected, "explicit operator confirmation declined")
+
+
+def publish(args):
+    validate_inputs(args.canonical_sha, args.community_sha, args.candidate_tree,
+                    args.preview_archive_sha256, args.preview_run_id,
+                    args.preview_artifact_id)
+    public_head = check_operator_checkout()
+    require(public_head == args.community_sha,
+            "reviewed public base differs from the trusted current public main")
+    if args.receipt is not None:
+        receipt_path = args.receipt.expanduser().resolve()
+        operator_root = Path.cwd().resolve()
+        require(not receipt_path.exists(), "refuse existing operator receipt")
+        require(operator_root not in receipt_path.parents,
+                "operator receipt must be outside the source checkout")
+        require(receipt_path.parent.is_dir() and
+                os.access(receipt_path.parent, os.W_OK),
+                "operator receipt destination must already be writable")
+    token = local_gh_token()
+    run = api("/repos/" + PRIVATE + "/actions/runs/" + args.preview_run_id, token)
     require(run.get("event") == "workflow_dispatch" and
             run.get("head_branch") == "main" and
+            run.get("head_sha") == args.canonical_sha and
             run.get("path") == PREVIEW_PATH and
             run.get("conclusion") == "success" and
             run.get("status") == "completed",
-            "preview is not a successful reviewed main-branch run")
-    artifact = api("/repos/" + PRIVATE + "/actions/artifacts/" + artifact_id, private_token)
-    require(artifact.get("name") == "keylix-publication-" + canonical and
-            artifact.get("workflow_run", {}).get("id") == int(run_id) and
-            artifact.get("digest") == "sha256:" + digest and
-            not artifact.get("expired"), "wrong or expired preview artifact")
-    data = download_zip(artifact_id, private_token)
-    require(hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest),
-            "actual ZIP does not match reviewed SHA-256")
+            "private preview run is not a successful exact-source main dispatch")
+    artifact = api(
+        "/repos/" + PRIVATE + "/actions/artifacts/" + args.preview_artifact_id,
+        token
+    )
+    require(artifact.get("name") == "keylix-publication-" + args.canonical_sha and
+            artifact.get("workflow_run", {}).get("id") == int(args.preview_run_id) and
+            artifact.get("digest") == "sha256:" + args.preview_archive_sha256 and
+            not artifact.get("expired"), "preview artifact does not match reviewed receipt")
+    data = download_zip(args.preview_artifact_id, token)
+    require(hmac.compare_digest(hashlib.sha256(data).hexdigest(),
+                                args.preview_archive_sha256),
+            "actual private preview ZIP SHA-256 mismatch")
     with zipfile.ZipFile(io.BytesIO(data)) as zipped:
-        files = read_preview(zipped, canonical, public_sha)
-    workspace = Path(env["GITHUB_WORKSPACE"])
-    verify_candidate(files, public_sha, tree, workspace)
-    branch = "publication/" + canonical
-    require(not git("ls-remote", "--heads", "origin", "refs/heads/" + branch),
-            "publication branch exists; refusing overwrite")
-    git("config", "user.name", "keylix-publication[bot]")
-    git("config", "user.email", "keylix-publication[bot]@users.noreply.github.com")
-    git("commit", "-m", "chore(publication): project Keylix " + canonical[:12])
-    require(git("rev-parse", "HEAD^{tree}") == tree, "commit tree changed")
-    auth_env = dict(env, GH_TOKEN=public_token)
-    subprocess.run(["gh", "auth", "setup-git"], check=True, env=auth_env)
-    subprocess.run(["git", "push", "origin", "HEAD:refs/heads/" + branch],
-                   check=True, env=auth_env)
-    body = ("## Public environment-approved Keylix publication\n\n"
-            "Canonical SHA: " + canonical + "\n"
-            "Reviewed community base: " + public_sha + "\n"
-            "Sealed candidate Git tree: " + tree + "\n"
-            "Successful private preview run: " + run_id + "\n"
-            "Reviewed artifact: " + artifact_id + "\n"
-            "Artifact SHA-256: " + digest + "\n\n"
-            "Environment approval preceded credential access. Replayed patch "
-            "and full-tree manifest match the exact reviewed candidate. "
-            "Public CI and PR review remain required; no main push.\n")
-    subprocess.run([
-        "gh", "pr", "create", "--repo", PUBLIC, "--base", "main",
-        "--head", branch, "--title",
-        "chore(publication): publish Keylix " + canonical[:12],
-        "--body", body,
-    ], check=True, env=auth_env)
+        files = read_preview(zipped, args.canonical_sha, args.community_sha)
+    # Scope: an isolated throwaway Git checkout, never user's working tree.
+    with tempfile.TemporaryDirectory(prefix="keylix-solo-publication-") as temporary:
+        workspace = Path(temporary) / "community"
+        subprocess.run([
+            "git", "clone", "--quiet", "--depth", "1", "--branch", "main",
+            "git@github.com:" + PUBLIC + ".git", str(workspace),
+        ], check=True)
+        original = Path.cwd()
+        try:
+            os.chdir(workspace)
+            verify_candidate(files, args.community_sha, args.candidate_tree, workspace)
+            branch = "publication/" + args.canonical_sha
+            require(not git("ls-remote", "--heads", "origin",
+                            "refs/heads/" + branch),
+                    "publication branch already exists; refuse overwrite")
+            receipt = {
+                "mode": "dry-run" if args.dry_run else "single-operator",
+                "canonical_sha": args.canonical_sha,
+                "community_sha": args.community_sha,
+                "candidate_tree": args.candidate_tree,
+                "preview_run_id": args.preview_run_id,
+                "preview_artifact_id": args.preview_artifact_id,
+                "preview_archive_sha256": args.preview_archive_sha256,
+                "public_workflow_revision": public_head,
+                "validated_at_utc": datetime.datetime.now(
+                    datetime.timezone.utc).isoformat(),
+                "source": "verified GitHub preview; local operator authorization",
+                "status": "validated-not-published",
+            }
+            if args.dry_run:
+                record_receipt(args.receipt, receipt)
+                print("DRY RUN PASS: verified candidate tree", args.candidate_tree,
+                      "— NO BRANCH/PR CREATED")
+                return
+            operator_confirm(args.canonical_sha, args.community_sha,
+                             args.candidate_tree, args.preview_archive_sha256)
+            # Recheck remote state *after* human review/confirmation.
+            require(git("ls-remote", "origin", "refs/heads/main").split()[0] ==
+                    args.community_sha, "public main moved before push")
+            require(not git("ls-remote", "--heads", "origin",
+                            "refs/heads/" + branch),
+                    "publication branch was created by another operator")
+            git("config", "user.name", "keylix-publication[operator]")
+            git("config", "user.email",
+                "keylix-publication[operator]@users.noreply.github.com")
+            git("commit", "-m",
+                "chore(publication): project Keylix " + args.canonical_sha[:12])
+            require(git("rev-parse", "HEAD^{tree}") == args.candidate_tree,
+                    "committed public tree changed")
+            # Git over SSH uses the operator's local SSH agent, not a GitHub
+            # Actions secret or a repository-wide PAT.
+            subprocess.run([
+                "git", "push", "origin", "HEAD:refs/heads/" + branch
+            ], check=True)
+            body = (
+                "## Explicit single-operator publication\n\n"
+                "This operation was performed interactively on a trusted workstation "
+                "after SHA/tree review; it is NOT two-person GitHub environment approval.\n\n"
+                "Canonical SHA: " + args.canonical_sha + "\n"
+                "Reviewed public base: " + args.community_sha + "\n"
+                "Exact candidate tree: " + args.candidate_tree + "\n"
+                "Successful private preview run: " + args.preview_run_id + "\n"
+                "Reviewed private artifact ID: " + args.preview_artifact_id + "\n"
+                "Verified artifact SHA-256: " + args.preview_archive_sha256 + "\n\n"
+                "Public CI and independent review are REQUIRED before merge. "
+                "No direct public main push, Cargo publish or release tag was performed.\n"
+            )
+            result = subprocess.run([
+                "gh", "pr", "create", "--repo", PUBLIC, "--base", "main",
+                "--head", branch, "--title",
+                "chore(publication): publish Keylix " + args.canonical_sha[:12],
+                "--body", body,
+            ], capture_output=True, text=True, check=True)
+            receipt["status"] = "public-pr-created"
+            receipt["public_branch"] = branch
+            receipt["public_pr_url"] = result.stdout.strip()
+            record_receipt(args.receipt, receipt)
+            print("PUBLIC PR CREATED:", result.stdout.strip())
+            print("Public CI and review must pass before an operator merges this PR.")
+        finally:
+            os.chdir(original)
+
+
+def main():
+    publish(parse_args())
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (RuntimeError, ValueError, KeyError, OSError, zipfile.BadZipFile) as error:
+    except (RuntimeError, ValueError, KeyError, OSError,
+            zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         print("Publication denied:", error, file=sys.stderr)
         sys.exit(1)
