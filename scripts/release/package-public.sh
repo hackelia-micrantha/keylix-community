@@ -126,6 +126,17 @@ PY
 
 # keylix-core has no unpublished Keylix registry dependency. Cargo can therefore
 # create its real .crate archive and run the normal isolated verification build.
+# Check Cargo's additional publish gate independently WITHOUT uploading; publication
+# authority and registry credentials are intentionally never available to CI.
+# --allow-dirty exists only for the canonical unpublished projection which may
+# stage a new public tree; the final registry operator must use a CLEAN commit.
+if ! cargo publish --dry-run --locked --allow-dirty -p keylix-core \
+    > "$output/core-publish-dry-run.log" 2>&1; then
+  cat "$output/core-publish-dry-run.log" >&2
+  echo "keylix-core non-upload publish dry run failed" >&2
+  exit 1
+fi
+
 # The archive checksum here is readiness evidence only: Cargo embeds VCS state
 # in .cargo_vcs_info.json, so canonical and projected preview contexts are
 # expected to have different archive hashes even when the package payload is
@@ -190,6 +201,8 @@ cp Cargo.toml "$output/manifests/workspace.source.Cargo.toml"
   printf 'publishable_crate_count=%s\n' "${#publishable[@]}"
   printf 'verified_prepublication_archive_count=1\n'
   printf 'verified_prepublication_archive=keylix-core-%s.crate\n' "$version"
+  printf 'core_publish_dry_run=passed-no-upload\n'
+  printf 'core_publish_dry_run_log=core-publish-dry-run.log\n'
   printf 'archive_checksum_scope=readiness-only-vcs-context-dependent\n'
   printf 'final_release_checksum_source=exact-committed-keylix-community-revision\n'
   printf 'dependent_package_verification=required-after-exact-sibling-registry-publication\n'
