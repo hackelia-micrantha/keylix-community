@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "canonical_repository": "hackelia-micrantha/keylix",
-  "canonical_sha": "19e6557b182f5f696b60e0f5f494a8d1a8850938",
-  "canonical_tree": "8a6d3fdf1f87b6482134778c58dd777dba296773",
+  "canonical_sha": "bf31dd5d0a1c13f16071959d7a417bb63199bb02",
+  "canonical_tree": "26b86859b51d05a73001dfa170cbb0009d9d5e79",
   "publication_policy": "allowlist-v1"
 }
