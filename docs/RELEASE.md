@@ -77,6 +77,7 @@ Outside the publication pipeline this requires a clean checkout. Publication Pre
 Before any Keylix version exists in the registry, the evidence directory contains:
 
 - the real, fully `cargo package`-verified `keylix-core` `.crate` archive;
+- a successful cargo publish --dry-run eligibility check for keylix-core (captured core-publish-dry-run.log; **no registry upload**);
 - its **readiness-only** SHA-256 checksum and normalized packaged manifest;
 - Cargo's `.cargo_vcs_info.json` from that readiness archive;
 - a context-independent content manifest that hashes the packaged payload while excluding `.cargo_vcs_info.json`;
@@ -90,6 +91,12 @@ The validator rejects a core package that retains parent-relative dependency pat
 ### Readiness checksum versus final release checksum
 
 Cargo embeds repository context in `.cargo_vcs_info.json`. Consequently, the canonical readiness archive and a dirty publication-preview archive may have different whole-archive hashes even when every other packaged file is identical. The readiness bundle preserves both the archive checksum and a payload manifest that excludes this context-specific VCS file so the distinction is reviewable rather than hidden.
+
+CI uses --allow-dirty for publication preview because its canonical projected
+public workspace is staged before committing. A real operator publishing from
+the final committed public source MUST NOT use --allow-dirty. The CI dry run
+does not reserve a crate name, verify registry ownership, authenticate a
+publisher, upload a package or prove that sibling versions exist.
 
 Neither canonical CI nor an uncommitted Publication Preview defines the final registry artifact checksum.
 

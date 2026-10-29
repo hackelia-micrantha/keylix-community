@@ -169,3 +169,13 @@ class LocalOperatorBoundaryTests(unittest.TestCase):
             content = workflow.read_text()
             self.assertNotIn("KEYLIX_PRIVATE_PREVIEW_READ_TOKEN", content)
             self.assertNotIn("KEYLIX_PUBLICATION_WRITE_TOKEN", content)
+
+class RegistryReadinessBoundaryTests(unittest.TestCase):
+    def test_first_crate_rehearses_only_non_upload_publish(self):
+        root = Path(__file__).resolve().parents[2]
+        script = (root / "scripts/release/package-public.sh").read_text()
+        self.assertIn("cargo publish --dry-run --locked --allow-dirty -p keylix-core", script)
+        self.assertIn("core_publish_dry_run=passed-no-upload", script)
+        self.assertIn("core-publish-dry-run.log", script)
+        self.assertNotIn("cargo publish --locked -p keylix-core", script)
+        self.assertNotIn("--no-verify", script)
