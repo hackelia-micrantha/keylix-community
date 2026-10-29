@@ -51,6 +51,8 @@ class ApprovalBoundaryTests(unittest.TestCase):
             "gitleaks.json": "[]",
             "publication.manifest.sha256": "x",
             "PUBLICATION-SOURCE.json": '{"canonical_sha":"' + canonical + '"}',
+            "package-evidence/PUBLICATION-SOURCE.json":
+                '{"canonical_sha":"nested-not-authoritative"}',
         }
         def archive(values):
             result = io.BytesIO()

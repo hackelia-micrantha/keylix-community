@@ -85,9 +85,11 @@ def download_zip(artifact_id, token):
 
 
 def member(zipped, name):
-    entries = [x for x in zipped.infolist()
-               if x.filename == name or x.filename.endswith("/" + name)]
-    require(len(entries) == 1, "missing or duplicated artifact member: " + name)
+    # The reviewed private preview contract puts each authoritative receipt at
+    # ZIP root. Nested package-evidence can legitimately repeat provenance,
+    # but must never substitute for the root review authority.
+    entries = [x for x in zipped.infolist() if x.filename == name]
+    require(len(entries) == 1, "missing or duplicated root artifact member: " + name)
     require(entries[0].file_size <= MAX_MEMBER_BYTES, "oversized artifact member")
     return zipped.read(entries[0])
 
