@@ -36,13 +36,14 @@ Canonical publication is an explicit reviewed operation:
 3. the complete resulting public tree is secret-scanned;
 4. formatting, static analysis, tests, documentation, package/readiness, and other release-relevant validation run against the projected tree;
 5. the reviewed candidate is sealed to the exact input revisions/tree;
-6. a public workflow dispatch on protected main pauses for approval in
-   the public keylix-community-publication GitHub environment;
-7. after required approval, the public job replays the exact private
-   Publication Preview patch on the reviewed public base, verifies the
-   ZIP digest, source SHA, sealed tree, complete manifest and secret-scan receipt;
-8. it opens only a publication candidate PR, never pushes public main;
-9. public CI and independent review remain mandatory before merging.
+6. one explicitly authorized operator on a trusted local workstation
+   runs the public-side source-bound verifier with reviewed SHA/tree/artifact
+   inputs; no publisher credentials enter GitHub Actions;
+7. the verifier uses the operator's existing gh authentication to fetch the
+   exact private preview ZIP and verifies its digest, provenance, clean
+   Gitleaks report, full manifest and candidate Git tree;
+8. a real interactive confirmation precedes SSH branch creation and public PR;
+9. public CI and independent technical review remain mandatory before merging.
 
 Publication does not push directly to `main`. A moved community base invalidates the reviewed candidate and requires a fresh preview.
 
@@ -73,46 +74,64 @@ The current projected source also includes public client protocol/design contrac
 
 The archived `hackelia-micrantha/keylix-client` repository is historical evidence only; it is not a parallel release authority. Future client SDK/release work originates from canonical Keylix and follows this same public release identity model.
 
-## Free-plan approval setup (currently inactive)
+## GitHub Free — explicit single-operator publication
 
-The old private Publish Community Candidate credential-bearing workflow is
-retired. The private Publication Preview still creates validated, secret-scanned,
-immutable review artifacts. **GitHub Free required reviewers are available only
-for public repositories**, so authorization moves here, NOT source authority.
+**Authority:** one human operator on an authorized workstation, not GitHub
+environment reviewers. The former public Approve Keylix Publication Actions
+workflow is **removed**. There are NO publication secrets in GitHub Actions.
+The old private publisher and credential preflight remain fail-closed in
+canonical Keylix. This is a single-person security trade-off, not two-person
+review, and **does not replace independent technical Supervisor review**.
 
-Configure Settings > Environments > keylix-community-publication in this PUBLIC
-repository: require a **different trusted human reviewer**, enable **prevent
-self-review**, and restrict eligible deployment branches to main. Protect public
-main with pull-request review/required CI. AI/Supervisor review is supplemental,
-not a substitute for a distinct human approver.
+Requirements:
 
-Only after these controls are verified, add the following ENVIRONMENT secrets:
-KEYLIX_PRIVATE_PREVIEW_READ_TOKEN (fine-grained private canonical Actions:read
-and Metadata:read) and KEYLIX_PUBLICATION_WRITE_TOKEN (fine-grained public
-Contents:read/write, Pull requests:read/write). Use expiring scoped credentials.
-Never use repository-level secrets or store credentials in workflow inputs.
-Rotate the existing private publisher token before production use.
+- a trusted PUBLIC keylix-community main checkout, clean and current;
+- gh logged in with access to read private keylix Actions artifacts and create
+  public keylix-community PRs (gh auth status);
+- Git-over-SSH auth available for hackelia-micrantha/keylix-community;
+- Python 3, git and sha256sum locally, not in Actions;
+- a manually reviewed SUCCESSFUL private Publication Preview workflow_dispatch
+  from main, with reviewed publication.diff, exact candidate Git tree,
+  canonical SHA, public base SHA, Gitleaks report and actual whole ZIP SHA256.
 
-Review the successful private Publication Preview diff, source/commit receipts,
-sealed candidate Git tree and SHA-256 of its actual ZIP. Dispatch
-Actions > Approve Keylix Publication from public main, enter the two source
-SHAs, candidate tree, successful preview run ID, artifact ID, ZIP SHA-256
-and confirmation PUBLISH. Preflight has no secrets; a PUBLIC environment
-approval releases the protected job. The approved job checks official GitHub
-run and artifact identity, exact ZIP digest, canonical/public SHAs, Gitleaks
-report, full file manifest and rebuilt candidate Git tree, then opens only
-a public candidate PR. Stale inputs and repeat branches fail closed.
+Run in the clean, up-to-date public checkout:
 
-Before activating, test that unapproved jobs cannot access secrets,
-self-approval is denied, missing credentials fail, bad SHA/digest/tree,
-moved public base and duplicate branch all fail without publication.
-Confirm the approved test creates a PUBLIC PR only and that public CI
-and independent PR review still gate public main.
+~~~bash
+python3 -B .github/scripts/publish_reviewed_preview.py \
+  --canonical-sha FULL_40_HEX_CANONICAL_COMMIT \
+  --community-sha FULL_40_HEX_PUBLIC_MAIN_COMMIT \
+  --candidate-tree FULL_40_HEX_REVIEWED_PUBLIC_GIT_TREE \
+  --preview-run-id NUMERIC_SUCCESSFUL_PRIVATE_PREVIEW_RUN_ID \
+  --preview-artifact-id NUMERIC_REVIEWED_ARTIFACT_ID \
+  --preview-archive-sha256 FULL_64_HEX_ACTUAL_ZIP_SHA256 \
+  --dry-run
+~~~
 
-If there is no second trusted human, DO NOT claim two-person approval. Keep
-this publisher disabled and use a separately controlled manual operator-held
-credential with documented single-operator risk acceptance. That fallback
-is NOT implemented by this approval workflow.
+The dry run verifies everything in a throwaway local clone; it does not
+prompt, create a branch or PR or touch the working tree.
 
-This PR neither provisions credentials/reviewer settings nor creates
-a supported v0.1.0 tag or Cargo registry publication.
+After explicit operator authorization and independent Supervisor review,
+repeat the exact command WITHOUT --dry-run. It requires a real interactive
+TTY and typing the exact text PUBLISH followed by a space and the first 12
+canonical SHA characters. Optionally use --receipt with a new path OUTSIDE
+the Git checkout for a mode-0600 local audit receipt. Refuses overwrite.
+No tokens, private source contents or artifact contents are written to it.
+
+Successful publication pushes ONLY publication/<canonical SHA> and opens a
+public candidate pull request, NOT a push to main, tag, Cargo registry action
+or production rollout. Public CI and independent review remain separate.
+
+Missing auth, moved base, mismatched digest/tree/manifest, nonempty Gitleaks,
+changed public controls or duplicate branch all fail closed. The validator
+requires current public main, a clean checkout, the authenticated private
+preview run's exact canonical SHA and artifact metadata.
+
+Use local gh stored credentials only for private preview REST; use the local
+SSH agent to push and local gh auth to create PR. Never set any publication
+secrets in GitHub Actions. Revoke the legacy private KEYLIX_COMMUNITY_TOKEN
+in its provider and remove existing old Actions secrets if present. Deleting
+an Actions secret alone DOES NOT revoke the underlying PAT.
+
+**Migration bridge:** the proven existing Python replay code has been adapted
+for local invocation without new dependencies. A separately reviewed Rust CLI
+can replace it later; do not duplicate it while both versions are active.

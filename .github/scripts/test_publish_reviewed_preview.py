@@ -120,3 +120,52 @@ class ApprovalBoundaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LocalOperatorBoundaryTests(unittest.TestCase):
+    def test_local_context_rejects_github_actions(self):
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            with self.assertRaisesRegex(RuntimeError, "GitHub Actions"):
+                publication.check_operator_checkout()
+
+    def test_local_context_rejects_ci(self):
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "false", "CI": "true"}):
+            with self.assertRaisesRegex(RuntimeError, "CI"):
+                publication.check_operator_checkout()
+
+    def test_noninteractive_publish_is_denied(self):
+        from unittest.mock import patch
+        with patch.object(publication.sys.stdin, "isatty", return_value=False):
+            with self.assertRaisesRegex(RuntimeError, "interactive"):
+                publication.operator_confirm("a" * 40, "b" * 40,
+                                             "c" * 40, "d" * 64)
+
+    def test_receipt_rejects_overwrite_and_never_exposes_token(self):
+        with tempfile.TemporaryDirectory() as root:
+            target = Path(root) / "receipt.json"
+            publication.record_receipt(target, {"status": "validated-not-published"})
+            self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+            self.assertNotIn("GH_TOKEN", target.read_text())
+            with self.assertRaisesRegex(RuntimeError, "overwrite"):
+                publication.record_receipt(target, {"status": "second"})
+
+    def test_command_requires_explicit_dry_run_opt_in(self):
+        values = ["--canonical-sha", "a" * 40,
+                  "--community-sha", "b" * 40,
+                  "--candidate-tree", "c" * 40,
+                  "--preview-run-id", "22",
+                  "--preview-artifact-id", "33",
+                  "--preview-archive-sha256", "d" * 64]
+        self.assertFalse(publication.parse_args(values).dry_run)
+        self.assertTrue(publication.parse_args(values + ["--dry-run"]).dry_run)
+
+    def test_no_privileged_public_actions_workflow_remains(self):
+        root = Path(__file__).resolve().parents[2]
+        self.assertFalse(
+            (root / ".github/workflows/approve-keylix-publication.yml").exists())
+        for workflow in (root / ".github/workflows").glob("*.yml"):
+            content = workflow.read_text()
+            self.assertNotIn("KEYLIX_PRIVATE_PREVIEW_READ_TOKEN", content)
+            self.assertNotIn("KEYLIX_PUBLICATION_WRITE_TOKEN", content)
