@@ -197,6 +197,13 @@ class ReleaseOperatorSafetyTests(unittest.TestCase):
         self.assertIn("confirm_publish", script)
         self.assertIn("publish-one)", script)
         self.assertIn("registry_checksum=UNVERIFIED", script)
+        self.assertIn("registry_checksum_verified=", script)
+        self.assertIn("reconcile_registered", script)
+        self.assertIn("verify-one)", script)
+        self.assertIn("missing exact-source local publication receipt for dependency", script)
+        self.assertIn("dependency $dependent registry checksum changed", script)
+        self.assertIn("stat -c %a", script)
+        self.assertIn('PUBLICATION-SOURCE.json missing/unreadable', script)
         self.assertNotIn("--allow-dirty", script)
         self.assertNotIn("--no-verify", script)
         self.assertNotIn("git push", script)
@@ -208,7 +215,7 @@ class ReleaseOperatorSafetyTests(unittest.TestCase):
         from unittest.mock import patch
         root = Path(__file__).resolve().parents[2]
         command = root / "scripts/release/operator-publish.sh"
-        for protected_env in ({"GITHUB_ACTIONS": "true"}, {"CI": "true"}):
+        for protected_env in ({"GITHUB_ACTIONS": "true"}, {"CI": "true"}, {"CI": "1"}):
             with patch.dict(os.environ, protected_env):
                 result = subprocess.run(
                     ["bash", str(command), "preflight", "a" * 40],

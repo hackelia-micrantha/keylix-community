@@ -13,11 +13,11 @@ deny() { printf 'keylix-release: DENY %s\n' "$*" >&2; exit 1; }
 
 check_arguments() {
   case "$1" in
-    preflight|publish-one|verify-registry) ;;
-    *) deny 'usage: operator-publish.sh preflight|verify-registry|publish-one SHA [crate]' ;;
+    preflight|publish-one|verify-registry|verify-one) ;;
+    *) deny 'usage: operator-publish.sh preflight|verify-registry|verify-one|publish-one SHA [crate]' ;;
   esac
   [[ "$2" =~ ^[a-f0-9]{40}$ ]] || deny 'require full 40-character public commit SHA'
-  if [[ "$1" == publish-one ]]; then
+  if [[ "$1" == publish-one || "$1" == verify-one ]]; then
     case "$3" in
       keylix-core|keylix-dpop|keylix-http|keylix-oauth|keylix-observe|keylix-mcp) ;;
       *) deny 'unknown publishable crate' ;;
@@ -27,7 +27,10 @@ check_arguments() {
 
 check_checkout() {
   [[ "${GITHUB_ACTIONS:-}" != true ]] || deny 'privileged publication forbidden in Actions'
-  [[ "${CI:-}" != true ]] || deny 'privileged publication forbidden in CI'
+  case "${CI:-}" in
+    ""|0|false) ;;
+    *) deny 'privileged publication forbidden in CI' ;;
+  esac
   command -v git >/dev/null || deny 'git missing'
   local root current remote_main
   root="$(git rev-parse --show-toplevel)" || deny 'not a Git checkout'
@@ -46,6 +49,7 @@ check_checkout() {
   [[ "$remote_main" == "$expected_sha" ]] || deny 'public main moved from reviewed release candidate'
   [[ -z "$(git ls-remote --tags origin refs/tags/v0.1.0)" ]] \
     || deny 'v0.1.0 remote tag already exists: release is not repeatable'
+  [[ -f PUBLICATION-SOURCE.json && -r PUBLICATION-SOURCE.json ]] || deny "PUBLICATION-SOURCE.json missing/unreadable"
   python3 -B - "$canonical_sha" "$canonical_tree" <<'PY'
 import json
 import sys
@@ -72,8 +76,38 @@ registry_status() {
   esac
 }
 
+registry_checksum() {
+  local name="$1"
+  curl --silent --show-error --fail --location     --connect-timeout 5 --max-time 15     "https://crates.io/api/v1/crates/$name/$version"     | python3 -B -c '
+import json
+import re
+import sys
+try:
+    document = json.load(sys.stdin)
+    version = document["version"]
+    checksum = version["checksum"]
+    if version.get("num") != "0.1.0" or not isinstance(checksum, str):
+        raise ValueError("missing exact crate version/checksum")
+    if not re.fullmatch(r"[a-f0-9]{64}", checksum):
+        raise ValueError("invalid registry SHA256 checksum")
+except (KeyError, TypeError, ValueError) as error:
+    raise SystemExit(f"DENY: invalid crates.io registry metadata: {error}")
+print(checksum)
+'
+}
+
+reconcile_registered() {
+  local name="$1" receipt="$2" local_checksum="$3" published_checksum
+  published_checksum="$(registry_checksum "$name")" || deny     "registry checksum not yet verified for $name; investigate/verify-one, never blindly republish"
+  [[ "$published_checksum" == "$local_checksum" ]] || deny     "registry checksum MISMATCH for $name: manual security investigation required"
+  if ! grep -Fqx "registry_checksum_verified=$published_checksum" "$receipt"; then
+    printf 'registry_checksum_verified=%s\n' "$published_checksum" >> "$receipt"
+  fi
+  printf 'keylix-release: registry checksum VERIFIED: %s %s\n' "$name" "$published_checksum"
+}
+
 check_dependency_registry() {
-  local crate="$1" dependent
+  local crate="$1" mode="$2" dependent
   # Read the source of truth rather than maintaining another dependency graph.
   local deps
   deps="$(python3 -B - "$crate" <<'PY'
@@ -104,6 +138,19 @@ PY
   for dependent in $deps; do
     [[ "$(registry_status "$dependent")" == 200 ]] \
       || deny "dependency $dependent=0.1.0 not available in crates.io"
+    if [[ "$mode" == publish-one ]]; then
+      local sibling_receipt="$KEYLIX_RELEASE_EVIDENCE_DIR/$dependent-$version-$expected_sha.txt"
+      [[ -f "$sibling_receipt" && ! -L "$sibling_receipt" ]] \
+        || deny "missing exact-source local publication receipt for dependency $dependent"
+      grep -Fqx 'publication_cli_exit=0' "$sibling_receipt" \
+        || deny "dependency $dependent has no proven successful upload"
+      local sibling_checksum
+      sibling_checksum="$(sed -n 's/^registry_checksum_verified=//p' "$sibling_receipt")"
+      [[ "$sibling_checksum" =~ ^[a-f0-9]{64}$ ]] \
+        || deny "dependency $dependent registry checksum not verified"
+      [[ "$(registry_checksum "$dependent")" == "$sibling_checksum" ]] \
+        || deny "dependency $dependent registry checksum changed"
+    fi
   done
 }
 
@@ -158,6 +205,7 @@ check_evidence_directory() {
     "$PWD/"*) deny 'audit must be outside public Git checkout' ;;
   esac
   [[ -w "$KEYLIX_RELEASE_EVIDENCE_DIR" ]] || deny 'audit directory not writable'
+  [[ "$(stat -c %a "$KEYLIX_RELEASE_EVIDENCE_DIR")" == 700 ]]     || deny 'operator audit directory must be private mode 0700'
   umask 077
 }
 
@@ -179,7 +227,7 @@ main() {
       done
       ;;
     preflight)
-      check_dependency_registry keylix-core
+      check_dependency_registry keylix-core preflight
       cargo publish --dry-run --locked -p keylix-core
       printf 'keylix-release: core local non-upload preflight PASS at %s\n' "$expected_sha"
       ;;
@@ -187,7 +235,7 @@ main() {
       check_evidence_directory
       [[ "$(registry_status "$crate_name")" == 404 ]] \
         || deny "crate $crate_name@$version already exists; refuse overwrite"
-      check_dependency_registry "$crate_name"
+      check_dependency_registry "$crate_name" publish-one
       cargo publish --dry-run --locked -p "$crate_name"
       local package_archive="target/package/$crate_name-$version.crate"
       [[ -f "$package_archive" ]] || deny 'expected locally verified package archive missing'
@@ -207,7 +255,21 @@ main() {
       # Deliberate explicit operator side effect: only this command uploads.
       cargo publish --locked -p "$crate_name"
       printf 'publication_cli_exit=0\n' >> "$receipt"
-      printf 'keylix-release: CLI upload returned success; REGISTRY CHECKSUM STILL UNVERIFIED: %s\n' "$receipt"
+      # Registry index propagation can lag upload. If this check fails, retain
+      # the attempted-publication receipt and NEVER retry upload automatically.
+      reconcile_registered "$crate_name" "$receipt" "$local_checksum"
+      ;;
+    verify-one)
+      check_evidence_directory
+      local existing_receipt="$KEYLIX_RELEASE_EVIDENCE_DIR/$crate_name-$version-$expected_sha.txt"
+      [[ -f "$existing_receipt" && ! -L "$existing_receipt" ]]         || deny 'no operator publication attempt receipt for this exact SHA/crate'
+      grep -Fqx "public_sha=$expected_sha" "$existing_receipt"         || deny 'receipt source SHA mismatch'
+      grep -Fqx "crate=$crate_name" "$existing_receipt"         || deny 'receipt crate mismatch'
+      grep -Fqx 'publication_cli_exit=0' "$existing_receipt"         || deny 'no successful local Cargo CLI return; investigate first'
+      local previous_checksum
+      previous_checksum="$(sed -n 's/^local_archive_sha256=//p' "$existing_receipt")"
+      [[ "$previous_checksum" =~ ^[a-f0-9]{64}$ ]]         || deny 'invalid local package checksum in receipt'
+      reconcile_registered "$crate_name" "$existing_receipt" "$previous_checksum"
       ;;
   esac
 }

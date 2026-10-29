@@ -75,8 +75,19 @@ receipt before the registry side effect; after a successful Cargo return it
 appends publication_cli_exit=0. A command success **does not** prove
 registry index availability or checksum consistency.
 
-Check the actual crates.io version and published checksum against the local
-archive, and retain the registry-verified receipt, before proceeding to:
+The CLI immediately checks crates.io registry SHA-256 against the local
+archive after upload. If visibility lags or checksums disagree, it stops
+and preserves the attempted-upload receipt. Do not blindly republish.
+After the registry has indexed the crate, independently repeat:
+
+    bash scripts/release/operator-publish.sh verify-one "$RELEASE_SHA" keylix-core
+
+The command reconciles exact registry metadata with the local archive SHA
+saved before the upload; it appends registry_checksum_verified to the private
+receipt only on an exact match. Each dependent crate additionally requires
+such an exact-SHA signed-off local receipt for every internal dependency
+and rechecks its live registry checksum. Do not proceed to a dependent crate
+until these checks succeed. Continue the sequence as follows:
 
     keylix-dpop
     keylix-http
@@ -84,9 +95,10 @@ archive, and retain the registry-verified receipt, before proceeding to:
     keylix-observe
     keylix-mcp
 
-Call publish-one separately for each crate, changing only its name. Never
-retry an ambiguous failed upload blindly; if the receipt already exists or
-registry visibility is uncertain, investigate first. The tool refuses
+Call publish-one separately for each crate, changing only its name, and run
+verify-one after the registry becomes visible. Never retry an ambiguous
+failed upload blindly; if the receipt already exists or registry visibility
+is uncertain, investigate first. The tool refuses
 overwriting an existing audit receipt to protect that decision boundary.
 
 ## Final public release gate
