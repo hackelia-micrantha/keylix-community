@@ -36,8 +36,13 @@ Canonical publication is an explicit reviewed operation:
 3. the complete resulting public tree is secret-scanned;
 4. formatting, static analysis, tests, documentation, package/readiness, and other release-relevant validation run against the projected tree;
 5. the reviewed candidate is sealed to the exact input revisions/tree;
-6. the protected publication job creates a `publication/<canonical-sha>` branch and pull request here;
-7. public CI/review remains authoritative before `main` changes.
+6. a public workflow dispatch on protected main pauses for approval in
+   the public keylix-community-publication GitHub environment;
+7. after required approval, the public job replays the exact private
+   Publication Preview patch on the reviewed public base, verifies the
+   ZIP digest, source SHA, sealed tree, complete manifest and secret-scan receipt;
+8. it opens only a publication candidate PR, never pushes public main;
+9. public CI and independent review remain mandatory before merging.
 
 Publication does not push directly to `main`. A moved community base invalidates the reviewed candidate and requires a fresh preview.
 
@@ -67,3 +72,47 @@ Supported downstream Nix consumption must bind to an immutable public release ta
 The current projected source also includes public client protocol/design contracts under `client/docs`. Those documents define future SDK-facing behavior within the public review surface; they are not evidence that a separately versioned client SDK has been released.
 
 The archived `hackelia-micrantha/keylix-client` repository is historical evidence only; it is not a parallel release authority. Future client SDK/release work originates from canonical Keylix and follows this same public release identity model.
+
+## Free-plan approval setup (currently inactive)
+
+The old private Publish Community Candidate credential-bearing workflow is
+retired. The private Publication Preview still creates validated, secret-scanned,
+immutable review artifacts. **GitHub Free required reviewers are available only
+for public repositories**, so authorization moves here, NOT source authority.
+
+Configure Settings > Environments > keylix-community-publication in this PUBLIC
+repository: require a **different trusted human reviewer**, enable **prevent
+self-review**, and restrict eligible deployment branches to main. Protect public
+main with pull-request review/required CI. AI/Supervisor review is supplemental,
+not a substitute for a distinct human approver.
+
+Only after these controls are verified, add the following ENVIRONMENT secrets:
+KEYLIX_PRIVATE_PREVIEW_READ_TOKEN (fine-grained private canonical Actions:read
+and Metadata:read) and KEYLIX_PUBLICATION_WRITE_TOKEN (fine-grained public
+Contents:read/write, Pull requests:read/write). Use expiring scoped credentials.
+Never use repository-level secrets or store credentials in workflow inputs.
+Rotate the existing private publisher token before production use.
+
+Review the successful private Publication Preview diff, source/commit receipts,
+sealed candidate Git tree and SHA-256 of its actual ZIP. Dispatch
+Actions > Approve Keylix Publication from public main, enter the two source
+SHAs, candidate tree, successful preview run ID, artifact ID, ZIP SHA-256
+and confirmation PUBLISH. Preflight has no secrets; a PUBLIC environment
+approval releases the protected job. The approved job checks official GitHub
+run and artifact identity, exact ZIP digest, canonical/public SHAs, Gitleaks
+report, full file manifest and rebuilt candidate Git tree, then opens only
+a public candidate PR. Stale inputs and repeat branches fail closed.
+
+Before activating, test that unapproved jobs cannot access secrets,
+self-approval is denied, missing credentials fail, bad SHA/digest/tree,
+moved public base and duplicate branch all fail without publication.
+Confirm the approved test creates a PUBLIC PR only and that public CI
+and independent PR review still gate public main.
+
+If there is no second trusted human, DO NOT claim two-person approval. Keep
+this publisher disabled and use a separately controlled manual operator-held
+credential with documented single-operator risk acceptance. That fallback
+is NOT implemented by this approval workflow.
+
+This PR neither provisions credentials/reviewer settings nor creates
+a supported v0.1.0 tag or Cargo registry publication.

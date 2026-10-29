@@ -69,3 +69,12 @@ jobs:
           path: target/keylix-package-evidence
           if-no-files-found: error
           retention-days: 14
+
+  publication-approval-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Public approval replay and negative policy tests
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s .github/scripts -p 'test_*.py'
