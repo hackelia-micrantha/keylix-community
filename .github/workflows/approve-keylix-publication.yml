@@ -1,0 +1,94 @@
+name: Approve Keylix Publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      canonical_sha:
+        description: Exact canonical source SHA in the successful private preview
+        required: true
+        type: string
+      community_sha:
+        description: Exact public main base SHA from the reviewed preview
+        required: true
+        type: string
+      candidate_tree:
+        description: Sealed projected public candidate Git tree SHA
+        required: true
+        type: string
+      preview_run_id:
+        description: Successful canonical Publication Preview Actions run ID
+        required: true
+        type: string
+      preview_artifact_id:
+        description: Reviewed immutable Publication Preview artifact ID
+        required: true
+        type: string
+      preview_archive_sha256:
+        description: SHA-256 hex digest of the reviewed complete preview ZIP
+        required: true
+        type: string
+      confirm:
+        description: Type PUBLISH to request approval
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keylix-publication-approved-public
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate request shape before requesting secrets
+        shell: bash
+        env:
+          CANONICAL_SHA: ${{ inputs.canonical_sha }}
+          COMMUNITY_SHA: ${{ inputs.community_sha }}
+          CANDIDATE_TREE: ${{ inputs.candidate_tree }}
+          PREVIEW_RUN_ID: ${{ inputs.preview_run_id }}
+          PREVIEW_ARTIFACT_ID: ${{ inputs.preview_artifact_id }}
+          PREVIEW_ARCHIVE_SHA256: ${{ inputs.preview_archive_sha256 }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$CONFIRM" == PUBLISH ]]
+          [[ "$CANONICAL_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$COMMUNITY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_TREE" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PREVIEW_ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$PREVIEW_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$PREVIEW_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    # GitHub Free enforces required reviewers and environment secrets here ONLY
+    # for a public repo. Set required human reviewer + prevent self-review before
+    # installing environment-scoped credentials. Unconfigured secrets fail closed.
+    environment: keylix-community-publication
+    env:
+      CANONICAL_SHA: ${{ inputs.canonical_sha }}
+      COMMUNITY_SHA: ${{ inputs.community_sha }}
+      CANDIDATE_TREE: ${{ inputs.candidate_tree }}
+      PREVIEW_RUN_ID: ${{ inputs.preview_run_id }}
+      PREVIEW_ARTIFACT_ID: ${{ inputs.preview_artifact_id }}
+      PREVIEW_ARCHIVE_SHA256: ${{ inputs.preview_archive_sha256 }}
+      KEYLIX_PRIVATE_PREVIEW_READ_TOKEN: ${{ secrets.KEYLIX_PRIVATE_PREVIEW_READ_TOKEN }}
+      KEYLIX_PUBLICATION_WRITE_TOKEN: ${{ secrets.KEYLIX_PUBLICATION_WRITE_TOKEN }}
+    steps:
+      - name: Check out approved public workflow source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Verify reviewed private preview and create public candidate PR
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONDONTWRITEBYTECODE=1 python3 -B .github/scripts/publish_reviewed_preview.py
