@@ -147,3 +147,13 @@ A `v0.1.0` release is not ready solely because `keylix-core` can be packaged or 
 - no unsupported claim of independent audit/interoperability if that evidence has not occurred.
 
 Final registry credentials and publication are separate privileged release operations and must not be exposed to pull-request workflows.
+
+## Trusted first-release operator sequence
+
+The source-only CI package gate never carries registry tokens or uploads
+crates. The privileged one-at-a-time, exact-commit local release procedure,
+registry checksum reconciliation, recorded interoperability decision and
+subsequent independent tag authorization are documented in
+[RELEASE_OPERATOR.md](RELEASE_OPERATOR.md). This does not waive any gate
+above, make an initial pre-publication archive a final published checksum,
+or convert a human-issued publish command into automatic release authority.
